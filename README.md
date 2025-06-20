@@ -19,8 +19,19 @@ You can see here it in use a few times:
 
 ## Debugging
 
-**Ensure that inlay hints are enabled in your VS Code settings.**
+**Ensure that inlay hints are enabled [`editor.inlayHints.enabled`](vscode://settings/editor.inlayHints.enabled) in your VS Code settings.**
 
+If the inlay hints are truncated, you may need to increase the inlay hints maximum length [`editor.inlayHints.maximumLength`](vscode://settings/editor.inlayHints.maximumLength). This overrides the maxLength of this plugin [`orta.vscode-twoslash-queries.maxLength` (default 120)](vscode://settings/orta.vscode-twoslash-queries.maxLength).
+
+This would look like:
+
+```json
+{
+  "editor.inlayHints.enabled": true,
+  "editor.inlayHints.maximumLength": 120,
+  "orta.vscode-twoslash-queries.maxLength": 120
+}
+```
 
 ## Deployment
 

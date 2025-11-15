@@ -32,29 +32,38 @@ function registerInsertTwoSlashQueryCommand(context: vscode.ExtensionContext) {
     vscode.commands.registerTextEditorCommand(
       'orta.vscode-twoslash-queries.insert-twoslash-query',
       async (textEditor: vscode.TextEditor) => {
-        const { document, selection: { active } } = textEditor;
-        const currLine = document.lineAt(active.line);
+        const { document, selections } = textEditor;
+        const selectionsPerLine = new Map(selections.map(sel => [sel.active.line, sel])); // Keep only the last selection for each line
+        const inserts: Array<{ eolRange: vscode.Position; comment: string }> = [];
+
+        for (const { active } of selectionsPerLine.values()) {
+          const currLine = document.lineAt(active.line);
         
-        let padding = active.character;
-        let eolRange = currLine.range.end;
-        if (currLine.isEmptyOrWhitespace) {
-          const prevLine = document.lineAt(active.line - 1);
-          const hint = await getLeftMostHintOfLine({
-            model: document,
-            position: prevLine.range.start,
-            lineLength: prevLine.text.length + 1,
-          });
-          const position = hint?.body?.start.offset;
-          if (position) {
-            padding = position - 1;
-            eolRange = prevLine.range.end;
+          let padding = active.character;
+          let eolRange = currLine.range.end;
+          if (currLine.isEmptyOrWhitespace && active.line > 0) {
+            const prevLine = document.lineAt(active.line - 1);
+            const hint = await getLeftMostHintOfLine({
+              model: document,
+              position: prevLine.range.start,
+              lineLength: prevLine.text.length + 1,
+            });
+            const position = hint?.body?.start.offset;
+            if (position) {
+              padding = position - 1;
+              eolRange = prevLine.range.end;
+            }
           }
+          const comment = '//'.padStart(currLine.firstNonWhitespaceCharacterIndex + 2).padEnd(padding, ' ').concat('^?');
+
+          inserts.push({ eolRange, comment });
         }
-        const comment = '//'.padStart(currLine.firstNonWhitespaceCharacterIndex + 2).padEnd(padding, ' ').concat('^?');
 
         textEditor.edit(editBuilder => {
           const eolChar = document.eol === vscode.EndOfLine.LF ? '\n' : '\r\n';
-          editBuilder.insert(eolRange, eolChar + comment);
+          for (const { eolRange, comment } of inserts) {
+            editBuilder.insert(eolRange, eolChar + comment);
+          }
         });
       }
     )
@@ -66,11 +75,20 @@ function registerInsertInlineQueryCommand(context: vscode.ExtensionContext) {
     vscode.commands.registerTextEditorCommand(
       'orta.vscode-twoslash-queries.insert-inline-query',
       (textEditor: vscode.TextEditor) => {
-        const { document, selection: { end } } = textEditor;
-        const eolRange = document.lineAt(end.line).range.end;
+        const { document, selections } = textEditor;
         const comment = ' // =>';
+        const selectionsPerLine = new Map(selections.map(sel => [sel.active.line, sel])); // Keep only the last selection for each line
+        const eolRangesForInserts: Array<vscode.Position> = [];
 
-        textEditor.edit(editBuilder => editBuilder.insert(eolRange, comment));
+        for (const { end } of selectionsPerLine.values()) {
+          eolRangesForInserts.push(document.lineAt(end.line).range.end);
+        }
+
+        textEditor.edit(editBuilder => {
+          for (const eolRange of eolRangesForInserts) {
+            editBuilder.insert(eolRange, comment);
+          }
+        });
       }
     )
   );
